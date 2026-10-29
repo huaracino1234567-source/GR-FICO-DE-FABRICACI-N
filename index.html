@@ -1,0 +1,713 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Planta Valle San Jacinto</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: sala de control. Escena 3D a pantalla completa, panel de costos a la derecha (abajo en móvil), navegador de departamentos al pie que funciona como gráfico de costo acumulado. Se mantiene un solo look oscuro por decisión de diseño. */
+:root{
+  --bg:#0e1316;
+  --panel:#161e22;
+  --panel2:#1d282d;
+  --line:#2b3a40;
+  --fg:#e7edef;
+  --muted:#92a4ab;
+  --accent:#e8a33d;
+  --warn:#e58f6c;
+  --melaza:#b07a4f;
+  --display:'Barlow Condensed','Arial Narrow',sans-serif;
+  --body:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{margin:0;display:flex;flex-direction:column;background:var(--bg);color:var(--fg);font:14px/1.45 var(--body);overflow:hidden}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.top{flex:none;border-bottom:1px solid var(--line);background:var(--bg)}
+.bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 20px;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.brand{min-width:0}
+.brand h1{margin:0;font:700 26px/1 var(--display);letter-spacing:.04em;text-transform:uppercase}
+.brand p{margin:3px 0 0;color:var(--muted);font-size:12px}
+.ctrls{display:flex;flex-wrap:wrap;gap:6px}
+.btn{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:5px 10px;cursor:pointer;font-size:12px;line-height:1.2}
+.btn:hover{background:var(--panel2)}
+.btn[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+
+#stage{flex:1;min-height:0;position:relative;background:var(--bg)}
+#stage canvas{position:absolute;inset:0;display:block;width:100%;height:100%}
+.labels{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:2}
+.lbl{position:absolute;left:0;top:0;white-space:nowrap;border-radius:4px;border:1px solid var(--line);background:rgba(14,19,22,.86);padding:4px 8px;font:600 12px/1.2 var(--body);will-change:transform}
+button.lbl{pointer-events:auto;cursor:pointer;display:flex;gap:6px;align-items:center}
+button.lbl:hover{border-color:var(--c)}
+button.lbl.on{border-color:var(--c);background:var(--c);color:#0e1316}
+.lbl i{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
+.lbl.on i{background:#0e1316}
+.tag{font:500 11px/1.2 var(--mono);color:var(--muted)}
+.tag b{color:var(--fg);font-weight:500}
+.nogl{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--muted)}
+
+.panel{position:absolute;z-index:5;top:12px;right:max(16px,env(safe-area-inset-right,0px));width:min(480px,calc(100% - 32px));max-height:calc(100% - 24px);display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.phead{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.ptag{display:flex;align-items:center;gap:8px;font:500 11px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.chip{width:10px;height:10px;border-radius:2px;display:inline-block}
+.pmin{background:none;border:1px solid var(--line);border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer;color:var(--muted)}
+.pbody{overflow:auto;padding:12px 14px 14px;min-height:0}
+.panel.min .pbody{display:none}
+.panel h2{margin:0 0 6px;font:700 28px/1.05 var(--display);letter-spacing:.02em;text-wrap:balance}
+.lead{margin:0 0 12px;color:var(--muted);font-size:13px}
+.hero{border:1px solid var(--line);border-radius:4px;background:var(--panel2);padding:10px 12px;margin-bottom:12px}
+.hv{font:500 30px/1.1 var(--mono);font-variant-numeric:tabular-nums;color:var(--accent);overflow-wrap:anywhere}
+.hv .pre{font-size:16px;margin-right:4px;color:var(--muted)}
+.hl{font-size:12px;color:var(--muted);margin-top:2px}
+.pbody h3{margin:14px 0 4px;font:600 11px/1.2 var(--body);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.rows{margin:0;padding:0}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:5px 0;border-bottom:1px solid var(--line)}
+.row dt{margin:0;font-size:13px}
+.row dd{margin:0;font:400 13px/1.45 var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+.row.total dt,.row.total dd{font-weight:600;color:var(--fg)}
+.row.total dd{color:var(--accent)}
+.row.sub dd{color:var(--warn)}
+
+.tw{overflow-x:auto}
+.tb{border-collapse:collapse;width:100%;font:400 11.5px/1.4 var(--mono);font-variant-numeric:tabular-nums}
+.tb th{font-weight:500;color:var(--muted);text-align:right;padding:3px 6px;white-space:nowrap;border-bottom:1px solid var(--line)}
+.tb td{padding:4px 6px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+.tb th:first-child,.tb td:first-child{text-align:left;white-space:normal;font-family:var(--body);font-size:12px;min-width:104px;position:sticky;left:0;background:var(--panel)}
+.tb tr.total td{font-weight:500;color:var(--accent)}
+.tb td.neg{color:var(--warn)}
+.split{display:flex;height:14px;border-radius:3px;overflow:hidden;border:1px solid var(--line);margin-top:8px}
+.split span{display:block;height:100%}
+.legend{display:flex;justify-content:space-between;gap:10px;margin-top:5px;font:400 11px/1.3 var(--mono);color:var(--muted)}
+.hint{margin:14px 0 0;font-size:12px;color:var(--muted)}
+
+.nav{flex:none;border-top:1px solid var(--line);background:var(--bg);padding-block:8px 10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.navcap{margin:0 0 6px;font:500 11px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.steps{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(120px,1fr);gap:6px;overflow-x:auto;padding-bottom:2px}
+.step{text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:6px 8px 7px;cursor:pointer;display:flex;flex-direction:column;gap:2px;min-width:0}
+.step:hover{background:var(--panel2)}
+.step[aria-current="true"]{border-color:var(--accent);background:var(--panel2)}
+.step .num{font:500 11px/1 var(--mono);letter-spacing:.06em}
+.step .nm{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.step .val{font:400 11px/1.2 var(--mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.step .barx{height:4px;border-radius:2px;background:var(--line);overflow:hidden;margin-top:3px}
+.step .barx i{display:block;height:100%}
+
+@media (max-width:760px){
+  .brand h1{font-size:21px}
+  .panel{top:auto;bottom:8px;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));width:auto;max-height:46%}
+  .panel h2{font-size:23px}
+  .hv{font-size:24px}
+}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style>
+
+<header class="top"><div class="bar">
+  <div class="brand"><h1>Planta Valle San Jacinto</h1><p>Costos por procesos y costos conjuntos · cifras en soles (S/)</p></div>
+  <div class="ctrls">
+    <button class="btn" id="prev" type="button">← Anterior</button>
+    <button class="btn" id="next" type="button">Siguiente →</button>
+    <button class="btn" id="auto" type="button" aria-pressed="false">Recorrido automático</button>
+    <button class="btn" id="anim" type="button" aria-pressed="true">Máquinas en marcha</button>
+    <button class="btn" id="full" type="button">Pantalla completa</button>
+  </div>
+</div></header>
+
+<main id="stage">
+  <div class="labels" id="labels"></div>
+  <section class="panel" id="panel" aria-label="Detalle de costos">
+    <div class="phead"><div class="ptag"><span class="chip" id="chip"></span><span id="ptag"></span></div><button class="pmin" id="pmin" type="button">Ocultar</button></div>
+    <div class="pbody" id="pbody"></div>
+  </section>
+</main>
+
+<nav class="nav" aria-label="Departamentos">
+  <p class="navcap">Costo que sale de cada departamento (S/)</p>
+  <div class="steps" id="steps"></div>
+</nav>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+'use strict';
+var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+var f = function(n,d){ d = d===undefined?2:d; return n.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d}); };
+var money = function(n){ return (n<0?'− ':'')+'S/ '+f(Math.abs(n)); };
+
+/* ---------- Datos (resultado de ejecutar el modelo en Python) ---------- */
+var COL = [0x7fb069,0x5b8fd0,0x4fb3a0,0xe8a33d,0xd9dde0];
+var hex = function(c){ return '#'+c.toString(16).padStart(6,'0'); };
+var MAXC = 1308766.00;
+
+/* Cifras tomadas directamente de las hojas del Excel (sin recalcular) */
+var STEPS = [
+ { nav:'Panorama', num:'Todo', navVal:'5 departamentos', bar:0, color:'#e8a33d', tag:'Vista general', name:'Planta de azúcar rubia',
+   lead:'Cinco departamentos en serie. La caña entra por el I y sale como azúcar rubia envasada en el V. En el IV el proceso se divide en azúcar y melaza, y el bagazo sale en el II como subproducto.',
+   hero:{pre:'S/ ',val:1264984.43,d:2,label:'Costo total por transferir del Dpto. I'},
+   groups:[{h:'Recorrido del costo (hojas de cada departamento)',rows:[
+     ['Transferido por el Dpto. I',1243161.59],['Jugo transferido por el Dpto. II',1308766.00],['Jarabe transferido por el Dpto. III',1268650.61],
+     ['Costo conjunto transferido por el Dpto. IV',1253979.46,'total'],['Azúcar rubia terminada (Dpto. V)',1122799.68],['Melaza (costo conjunto asignado)',196179.14]]}],
+   hint:'Haz clic en una máquina o usa las flechas ← → del teclado.' },
+
+ { nav:'Recepción', num:'I', navVal:'1,243,162', bar:1243161.59, color:hex(COL[0]), tag:'Departamento I', name:'Recepción y preparación',
+   lead:'La caña se descarga en la tolva, pasa por la faja y se corta en la picadora.',
+   hero:{pre:'S/ ',val:1243161.59,d:2,label:'Transferidas al Dpto. II (1,740,000 kg)'},
+   groups:[
+    {h:'Cantidades (kg)',rows:[['Puestas en producción','1,780,000'],['Inventario inicial','20,000'],['Total en producción','1,800,000','total'],['Terminadas y transferidas (Dpto. II)','1,740,000'],['En proceso final','30,000'],['Pérdida normal','24,000'],['Pérdida anormal','6,000'],['Total procesado','1,800,000','total']]},
+    {h:'Costos por transferir (S/)',table:{cols:['Inicial','Periodo','Total'],rows:[
+      ['Materia prima (caña)',[9600,874706.35,884306.35]],['MOD',[2400,127481,129881]],['CIF',[3600,247197.08,250797.08]],['Total',[15600,1249384.43,1264984.43],'total']]}},
+    {h:'Producción equivalente y costo unitario',table:{cols:['PE (kg)','CU (S/)'],rows:[
+      ['Materia prima',['1,776,000','0.49792024']],['MOD',['1,758,000','0.07387998']],['CIF',['1,758,000','0.14266046']],['Total',['','0.71446068'],'total']]}},
+    {h:'Costo transferido, en proceso y pérdida (S/)',table:{cols:['MP','MOD','CIF','Total'],rows:[
+      ['Transferidas al Dpto. II · 1,740,000 kg',[866381.22,128551.17,248229.2,1243161.59],'total'],
+      ['Pérdida anormal · 6,000 kg',[2987.52,443.28,855.96,4286.76]],
+      ['En proceso final · 30,000 kg',[14937.61,886.55,1711.92,17536.08]],
+      ['Total',[884306.35,129881,250797.08,1264984.43]]]}}],
+   hint:'PE (MP) = 1,740,000 + 6,000 + 30,000 × 100 % = 1,776,000. PE (conversión) = 1,740,000 + 6,000 + 30,000 × 40 % = 1,758,000.' },
+
+ { nav:'Molienda', num:'II', navVal:'1,308,766', bar:1308766.00, color:hex(COL[1]), tag:'Departamento II', name:'Extracción y molienda',
+   lead:'Los molinos extraen el jugo. El bagazo es un subproducto: su VNR se resta del costo recibido del Dpto. I.',
+   hero:{pre:'S/ ',val:1308766.00,d:2,label:'Jugo transferido al Dpto. III (1,080,000 kg)'},
+   groups:[
+    {h:'Cantidades (kg)',rows:[['Recibidas del Dpto. I','1,740,000'],['Inventario inicial','0'],['Total en producción','1,740,000','total'],['Jugo transferido (Dpto. III)','1,080,000'],['Bagazo (subproducto)','450,000'],['Pérdida normal','180,000'],['Pérdida anormal','30,000'],['Total procesado','1,740,000','total']]},
+    {h:'Costos por transferir (S/)',table:{cols:['Inicial','Periodo','Total'],rows:[
+      ['Costo del Dpto. I',[0,1243161.59,'']],['(−) VNR del bagazo',[0,-140000,'']],['Costo anterior neto',[0,1103161.59,1103161.59]],
+      ['Materiales directos',[0,38000,38000]],['MOD',[0,37477.09,37477.09]],['CIF',[0,166481.93,166481.93]],['Total',[0,1345120.61,1345120.61],'total']]}},
+    {h:'Producción equivalente y costo unitario',table:{cols:['PE (kg)','CU (S/)'],rows:[
+      ['Costo anterior neto',['1,110,000','0.99383927']],['Materiales directos',['1,110,000','0.03423423']],['MOD',['1,110,000','0.03376314']],['CIF',['1,110,000','0.14998372']],['Total',['','1.21182036'],'total']]}},
+    {h:'Costo transferido y pérdida (S/)',table:{cols:['Anterior','Mater.','MOD','CIF','Total'],rows:[
+      ['Jugo transferido al Dpto. III · 1,080,000 kg',[1073346.41,36972.97,36464.2,161982.42,1308766],'total'],
+      ['Pérdida anormal · 30,000 kg',[29815.18,1027.03,1012.89,4499.51,36354.61]],
+      ['Total',[1103161.59,38000,37477.09,166481.93,1345120.61]]]}}],
+   hint:'El bagazo vale S/ 140,000.00 de VNR (360,000 × 0.40 − 4,000). Se resta del costo recibido. Los 90,000 kg quemados no llevan costo. PE de todos los elementos = 1,080,000 + 30,000 = 1,110,000, porque no hay proceso final.' },
+
+ { nav:'Clarificación', num:'III', navVal:'1,268,651', bar:1268650.61, color:hex(COL[2]), tag:'Departamento III', name:'Clarificación y evaporación',
+   lead:'El jugo se clarifica y luego se concentra en el evaporador hasta obtener jarabe.',
+   hero:{pre:'S/ ',val:1268650.61,d:2,label:'Jarabe transferido al Dpto. IV (880,000 kg)'},
+   groups:[
+    {h:'Cantidades (kg)',rows:[['Recibidas del Dpto. II','1,080,000'],['Inventario inicial','40,000'],['Total en producción','1,120,000','total'],['Jarabe transferido (Dpto. IV)','880,000'],['En proceso final','150,000'],['Pérdida normal','60,000'],['Pérdida anormal','30,000'],['Total procesado','1,120,000','total']]},
+    {h:'Costos por transferir (S/)',table:{cols:['Inicial','Periodo','Total'],rows:[
+      ['Costo anterior + materiales',[51600,1350766,1402366]],['MOD',[1000,35980.83,36980.83]],['CIF',[1800,79880.79,81680.79]],['Total',[54400,1466627.62,1521027.62],'total']]}},
+    {h:'Producción equivalente y costo unitario',table:{cols:['PE (kg)','CU (S/)'],rows:[
+      ['Costo anterior + mat.',['1,060,000','1.32298679']],['MOD',['1,000,000','0.03698083']],['CIF',['1,000,000','0.08168079']],['Total',['','1.44164841'],'total']]}},
+    {h:'Costo transferido, en proceso y pérdida (S/)',table:{cols:['Ant. + mat.','MOD','CIF','Total'],rows:[
+      ['Transferidas al Dpto. IV · 880,000 kg',[1164228.38,32543.13,71879.1,1268650.61],'total'],
+      ['Pérdida anormal · 30,000 kg',[39689.6,1109.42,2450.42,43249.44]],
+      ['En proceso final · 150,000 kg',[198448.02,3328.28,7351.27,209127.57]],
+      ['Total',[1402366,36980.83,81680.79,1521027.62]]]}}],
+   hint:'El periodo en costo anterior + materiales es 1,308,766.00 + 42,000.00 = 1,350,766.00. PE (materiales) = 880,000 + 30,000 + 150,000 = 1,060,000. PE (conversión) = 880,000 + 30,000 + 150,000 × 60 % = 1,000,000.' },
+
+ { nav:'Cristalización', num:'IV', navVal:'1,253,979', bar:1253979.46, color:hex(COL[3]), tag:'Departamento IV · costos conjuntos', name:'Cristalización y centrifugación',
+   lead:'Aquí el jarabe se separa en azúcar y melaza. El costo conjunto transferido se reparte según el valor neto realizable (VNR) de cada coproducto.',
+   hero:{pre:'S/ ',val:1253979.46,d:2,label:'Costo conjunto transferido (710,000 kg)'},
+   groups:[
+    {h:'Cantidades (kg)',rows:[['Recibidas del Dpto. III','880,000'],['Inventario inicial','30,000'],['Total en producción','910,000','total'],['Azúcar cristalizada','480,000'],['Melaza','230,000'],['En proceso final','140,000'],['Pérdida normal','60,000'],['Pérdida anormal','0'],['Total procesado','910,000','total']]},
+    {h:'Costos por transferir (S/)',table:{cols:['Inicial','Periodo','Total'],rows:[
+      ['Costo anterior + materiales',[39200,1298650.61,1337850.61]],['MOD',[1000,47050.41,48050.41]],['CIF',[1800,100086.16,101886.16]],['Total',[42000,1445787.18,1487787.18],'total']]}},
+    {h:'Producción equivalente y costo unitario',table:{cols:['PE (kg)','CU (S/)'],rows:[
+      ['Costo anterior + mat.',['850,000','1.57394189']],['MOD',['780,000','0.06160309']],['CIF',['780,000','0.13062328']],['Total',['','1.76616826'],'total']]}},
+    {h:'Costo transferido y en proceso (S/)',table:{cols:['Ant. + mat.','MOD','CIF','Total'],rows:[
+      ['Transferidas (costo conjunto) · 710,000 kg',[1117498.74,43738.19,92742.53,1253979.46],'total'],
+      ['En proceso final · 140,000 kg',[220351.87,4312.22,9143.63,233807.72]],
+      ['Total',[1337850.61,48050.41,101886.16,1487787.18]]]}},
+    {h:'Punto de separación: reparto por VNR',table:{cols:['VNR (S/)','%','Costo conj. (S/)','Costo unit. (S/)'],rows:[
+      ['Azúcar cristalizada · 480,000 kg',[1860244.26,'84.3555 %',1057800.32,'2.20375']],
+      ['Melaza · 230,000 kg',[345000,'15.6445 %',196179.14,'0.85295']],
+      ['Total',[2205244.26,'100 %',1253979.46,''],'total']]}}],
+   split:{a:84.3555,b:15.6445,la:'Azúcar 84.3555 %',lb:'Melaza 15.6445 %'},
+   hint:'VNR azúcar: 470,000 × 4.20 − 113,755.74. VNR melaza: 230,000 × 1.50. Los S/ 113,755.74 son los costos propios del Dpto. V: 45,000.00 + 18,545.10 + 50,210.64. PE (materiales) = 710,000 + 140,000 = 850,000. PE (conversión) = 710,000 + 140,000 × 50 % = 780,000.' },
+
+ { nav:'Envasado', num:'V', navVal:'1,122,800', bar:1122799.68, color:hex(COL[4]), tag:'Departamento V · proceso posterior', name:'Secado y envasado',
+   lead:'El azúcar se seca y se envasa. La melaza no pasa por este departamento y se almacena en su tanque.',
+   hero:{pre:'S/ ',val:1122799.68,d:2,label:'Azúcar rubia terminada (450,000 kg)'},
+   groups:[
+    {h:'Cantidades (kg)',rows:[['Recibidas del Dpto. IV','480,000'],['Inventario inicial','10,000'],['Total en producción','490,000','total'],['Azúcar rubia terminada','450,000'],['En proceso final','20,000'],['Pérdida normal','10,000'],['Pérdida anormal','10,000'],['Total procesado','490,000','total']]},
+    {h:'Costos por transferir (S/)',table:{cols:['Inicial','Periodo','Total'],rows:[
+      ['Costo anterior + materiales',[23000,1102800.32,1125800.32]],['MOD',[600,18545.1,19145.1]],['CIF',[1000,50210.64,51210.64]],['Total',[24600,1171556.06,1196156.06],'total']]}},
+    {h:'Producción equivalente y costo unitario',table:{cols:['PE (kg)','CU (S/)'],rows:[
+      ['Costo anterior + mat.',['480,000','2.34541733']],['MOD',['470,000','0.04073426']],['CIF',['470,000','0.10895881']],['Total',['','2.4951104'],'total']]}},
+    {h:'Costo terminado, en proceso y pérdida (S/)',table:{cols:['Ant. + mat.','MOD','CIF','Total'],rows:[
+      ['Azúcar rubia terminada · 450,000 kg',[1055437.8,18330.42,49031.46,1122799.68],'total'],
+      ['Pérdida anormal · 10,000 kg',[23454.17,407.34,1089.59,24951.1]],
+      ['En proceso final · 20,000 kg',[46908.35,407.34,1089.59,48405.28]],
+      ['Total',[1125800.32,19145.1,51210.64,1196156.06]]]}}],
+   hint:'El periodo en costo anterior + materiales es 1,057,800.32 + 45,000.00 = 1,102,800.32. PE (materiales) = 450,000 + 10,000 + 20,000 = 480,000. PE (conversión) = 450,000 + 10,000 + 20,000 × 50 % = 470,000.' },
+
+ { nav:'Resultado', num:'Final', navVal:'Estado de costos', bar:0, color:'#e8a33d', tag:'Resultado', name:'Costos y resultados del periodo',
+   lead:'Cifras del estado de costos integral y del estado de resultados por función del Excel.',
+   hero:{pre:'S/ ',val:1355261.22,d:2,label:'Costo de ventas total del periodo'},
+   groups:[
+    {h:'Costo unitario (S/ por kg)',rows:[['Azúcar cristalizada (costo conjunto)','2.20375'],['Melaza (costo conjunto)','0.85295'],['Azúcar rubia terminada (Dpto. V)','2.4951104','total']]},
+    {h:'Estado de costos de producción',rows:[['Material directo utilizado',1087706.35],['Mano de obra directa',350689.67],['Costos indirectos de fabricación',619992.39],['Costo de producción del periodo',2058388.41,'total'],['Deducción VNR subproductos (bagazo)',-140000,'sub'],['Pérdidas anormales en procesos',-114840.4,'sub'],['Costo de productos terminados y coproductos',1412811.33],['Costo de ventas total del periodo',1355261.22,'total']]},
+    {h:'Estado de resultados por función',rows:[['Ventas netas',2124000],['Costo de ventas',-1355261.22,'sub'],['Utilidad bruta',768738.78,'total'],['Utilidad antes de impuestos',597998.38],['Utilidad neta del ejercicio',421588.86,'total']]}],
+   split:{a:84.3555,b:15.6445,la:'Azúcar 84.3555 % del costo conjunto',lb:'Melaza 15.6445 %'} }
+];
+
+/* ---------- Panel y navegador ---------- */
+var panel = document.getElementById('panel'), pbody = document.getElementById('pbody');
+var raf = 0;
+function countTo(el,val,d){
+  cancelAnimationFrame(raf);
+  el.textContent = f(val,d);
+  if(reduce) return;
+  var t0 = performance.now();
+  var tick = function(now){
+    var k = Math.min(1,(now-t0)/600), e = 1-Math.pow(1-k,3);
+    el.textContent = f(val*e,d);
+    if(k<1) raf = requestAnimationFrame(tick); else el.textContent = f(val,d);
+  };
+  raf = requestAnimationFrame(tick);
+}
+function renderPanel(s){
+  document.getElementById('chip').style.background = s.color;
+  document.getElementById('ptag').textContent = s.tag;
+  var h = '<h2>'+s.name+'</h2><p class="lead">'+s.lead+'</p>';
+  h += '<div class="hero"><div class="hv"><span class="pre">'+s.hero.pre.trim()+'</span><span id="hv"></span></div><div class="hl">'+s.hero.label+'</div></div>';
+  s.groups.forEach(function(g){
+    if(g.table){
+      h += '<h3>'+g.h+'</h3><div class="tw"><table class="tb"><thead><tr><th></th>'+g.table.cols.map(function(c){ return '<th>'+c+'</th>'; }).join('')+'</tr></thead><tbody>';
+      g.table.rows.forEach(function(r){
+        h += '<tr class="'+(r[2]||'')+'"><td>'+r[0]+'</td>'+r[1].map(function(v){
+          if(typeof v==='number') return '<td'+(v<0?' class="neg"':'')+'>'+(v<0?'\u2212 ':'')+f(Math.abs(v))+'</td>';
+          return '<td>'+v+'</td>';
+        }).join('')+'</tr>';
+      });
+      h += '</tbody></table></div>';
+      return;
+    }
+    h += '<h3>'+g.h+'</h3><dl class="rows">';
+    g.rows.forEach(function(r){
+      var v = typeof r[1]==='number' ? money(r[1]) : r[1];
+      h += '<div class="row '+(r[2]||'')+'"><dt>'+r[0]+'</dt><dd>'+v+'</dd></div>';
+    });
+    h += '</dl>';
+  });
+  if(s.split){
+    h += '<div class="split" role="img" aria-label="'+s.split.la+', '+s.split.lb+'"><span style="width:'+s.split.a+'%;background:var(--accent)"></span><span style="width:'+s.split.b+'%;background:var(--melaza)"></span></div><div class="legend"><span>'+s.split.la+'</span><span>'+s.split.lb+'</span></div>';
+  }
+  if(s.hint) h += '<p class="hint">'+s.hint+'</p>';
+  pbody.innerHTML = h;
+  pbody.scrollTop = 0;
+  countTo(document.getElementById('hv'), s.hero.val, s.hero.d);
+}
+var stepsEl = document.getElementById('steps');
+STEPS.forEach(function(s,i){
+  var b = document.createElement('button');
+  b.type = 'button'; b.className = 'step'; b.dataset.i = i;
+  b.innerHTML = '<span class="num" style="color:'+s.color+'">'+s.num+'</span><span class="nm">'+s.nav+'</span><span class="val">'+s.navVal+'</span><span class="barx"><i style="width:'+(s.bar? (s.bar/MAXC*100).toFixed(1):0)+'%;background:'+s.color+'"></i></span>';
+  b.addEventListener('click', function(){ go(i); });
+  stepsEl.appendChild(b);
+});
+var pminBtn = document.getElementById('pmin');
+pminBtn.addEventListener('click', function(){
+  var m = panel.classList.toggle('min');
+  pminBtn.textContent = m ? 'Mostrar' : 'Ocultar';
+});
+
+/* ---------- Escena 3D ---------- */
+var stage = document.getElementById('stage');
+var labelsEl = document.getElementById('labels');
+var S = [-24,-12,0,12,24];
+var step = 0, userMoved = false, goal = null, animOn = !reduce, simT = 0;
+var renderer, scene, camera, controls;
+var spinners = [], ticks = [], stations = [], labelItems = [];
+
+function go(i){
+  step = (i+STEPS.length)%STEPS.length;
+  userMoved = false;
+  Array.prototype.forEach.call(stepsEl.children, function(b,k){
+    if(k===step) b.setAttribute('aria-current','true'); else b.removeAttribute('aria-current');
+  });
+  var cur = stepsEl.children[step];
+  if(cur && cur.scrollIntoView){ try{ cur.scrollIntoView({block:'nearest',inline:'nearest'}); }catch(e){} }
+  renderPanel(STEPS[step]);
+  labelItems.forEach(function(L){ if(L.btn) L.el.classList.toggle('on', L.idx===step-1); });
+  applyCam(reduce);
+}
+
+function init3D(){
+  if(!window.THREE || !THREE.OrbitControls){
+    var m = document.createElement('div'); m.className='nogl'; m.textContent='No se pudo cargar el motor 3D. Los datos de cada departamento siguen disponibles en el panel y en la barra inferior.';
+    stage.insertBefore(m, stage.firstChild); return false;
+  }
+  try{
+    renderer = new THREE.WebGLRenderer({antialias:true});
+  }catch(e){
+    var m2 = document.createElement('div'); m2.className='nogl'; m2.textContent='Este navegador no pudo iniciar WebGL. Los datos de cada departamento siguen disponibles en el panel y en la barra inferior.';
+    stage.insertBefore(m2, stage.firstChild); return false;
+  }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  stage.insertBefore(renderer.domElement, stage.firstChild);
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0e1316);
+  scene.fog = new THREE.Fog(0x0e1316, 90, 260);
+  camera = new THREE.PerspectiveCamera(42,1.6,0.1,500);
+  camera.position.set(0,34,52);
+  controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.08;
+  controls.minDistance = 8; controls.maxDistance = 170; controls.maxPolarAngle = 1.45;
+  controls.addEventListener('start', function(){ goal = null; userMoved = true; });
+
+  scene.add(new THREE.HemisphereLight(0xcfe3ea,0x0e1316,0.75));
+  var sun = new THREE.DirectionalLight(0xffffff,0.95);
+  sun.position.set(20,36,26); sun.castShadow = true;
+  sun.shadow.mapSize.set(2048,2048);
+  var sc = sun.shadow.camera; sc.left=-55; sc.right=55; sc.top=40; sc.bottom=-40; sc.near=1; sc.far=140;
+  sun.shadow.bias = -0.0005;
+  scene.add(sun);
+
+  var floor = new THREE.Mesh(new THREE.PlaneGeometry(320,220), new THREE.MeshStandardMaterial({color:0x121a1d,roughness:0.95,metalness:0}));
+  floor.rotation.x = -Math.PI/2; floor.receiveShadow = true; scene.add(floor);
+  var grid = new THREE.GridHelper(220,110,0x25343a,0x1a252a); grid.position.y = 0.01; scene.add(grid);
+
+  buildPlant();
+  return true;
+}
+
+/* helpers de geometría */
+function rng(seed){ return function(){ seed = (seed*16807)%2147483647; return (seed-1)/2147483646; }; }
+function mesh(geo,mat){ var m = new THREE.Mesh(geo,mat); m.castShadow = true; m.receiveShadow = true; return m; }
+function cyl(rt,rb,h,mat,seg,open){ return mesh(new THREE.CylinderGeometry(rt,rb,h,seg||32,1,!!open),mat); }
+function box(w,h,d,mat){ return mesh(new THREE.BoxGeometry(w,h,d),mat); }
+function tor(r,t,mat,seg){ return mesh(new THREE.TorusGeometry(r,t,12,seg||40),mat); }
+function at(o,x,y,z){ o.position.set(x,y,z); return o; }
+function pivot(g,x,y,z){ var p = new THREE.Group(); p.position.set(x,y,z); g.add(p); return p; }
+function spin(o,axis,speed){ spinners.push({o:o,axis:axis,speed:speed}); }
+function paint(c,ds){ return new THREE.MeshStandardMaterial({color:c,metalness:0.35,roughness:0.45,side:ds?THREE.DoubleSide:THREE.FrontSide}); }
+
+var M;
+function materials(){
+  M = {
+    steel: new THREE.MeshStandardMaterial({color:0xa6b6bd,metalness:0.75,roughness:0.32}),
+    steelDS: new THREE.MeshStandardMaterial({color:0x8fa0a8,metalness:0.7,roughness:0.4,side:THREE.DoubleSide}),
+    dark: new THREE.MeshStandardMaterial({color:0x34424a,metalness:0.55,roughness:0.5}),
+    belt: new THREE.MeshStandardMaterial({color:0x1d272b,metalness:0.2,roughness:0.8}),
+    plat: new THREE.MeshStandardMaterial({color:0x1f2a2e,metalness:0.2,roughness:0.85}),
+    cane: new THREE.MeshStandardMaterial({color:0x6aa04a,roughness:0.7}),
+    juice: new THREE.MeshStandardMaterial({color:0xb9a94a,emissive:0x2a2406,roughness:0.3,metalness:0.1}),
+    bagazo: new THREE.MeshStandardMaterial({color:0x8a6a3b,roughness:1}),
+    bag: new THREE.MeshStandardMaterial({color:0xefe9da,roughness:0.9}),
+    melaza: new THREE.MeshStandardMaterial({color:0x8a5a3b,metalness:0.3,roughness:0.4}),
+    sugar: new THREE.MeshStandardMaterial({color:0xf0e0b8,roughness:0.9,side:THREE.DoubleSide})
+  };
+}
+
+function wp(i,x,y,z){ return new THREE.Vector3(S[i]+x,y,z); }
+
+/* flujo de costo: tubo + partículas que viajan */
+function flow(a,b,color,opts){
+  opts = opts||{};
+  var curve = new THREE.LineCurve3(a,b);
+  if(opts.tube!==false){
+    var t = mesh(new THREE.TubeGeometry(curve,2,0.13,10,false), M.dark);
+    t.castShadow = false; scene.add(t);
+  }
+  var n = opts.n||7, len = a.distanceTo(b), parts = [];
+  var mat = new THREE.MeshBasicMaterial({color:color});
+  for(var k=0;k<n;k++){ var p = new THREE.Mesh(new THREE.SphereGeometry(opts.r||0.17,12,10),mat); scene.add(p); parts.push(p); }
+  var speed = opts.speed||2.0;
+  ticks.push(function(t){
+    for(var k=0;k<n;k++){ var u = (k/n + t*speed/len)%1; parts[k].position.copy(curve.getPointAt(u)); }
+  });
+}
+
+function makeStation(i,build){
+  var g = new THREE.Group(); g.position.set(S[i],0,0); g.userData.idx = i;
+  var plat = box(8.4,0.3,8.4,M.plat); plat.position.y = 0.15; g.add(plat);
+  var glowMat = new THREE.MeshBasicMaterial({color:COL[i],transparent:true,opacity:0.3});
+  var glow = new THREE.Mesh(new THREE.BoxGeometry(8.9,0.08,8.9),glowMat); glow.position.y = 0.04; g.add(glow);
+  var light = new THREE.PointLight(COL[i],0.5,18); light.position.set(0,6,3); g.add(light);
+  build(g,COL[i]);
+  scene.add(g);
+  stations.push({g:g,glow:glowMat,light:light});
+}
+
+function buildPlant(){
+  materials();
+
+  /* ===== Dpto. I: recepción y preparación ===== */
+  makeStation(0,function(g,col){
+    var pm = paint(col,true), pm1 = paint(col), r = rng(7);
+    g.add(at(cyl(1.9,0.7,1.8,pm,36,true),-2.4,3.6,0));
+    [-1,1].forEach(function(sx){ [-1,1].forEach(function(sz){ g.add(at(cyl(0.12,0.12,2.7,M.dark,12),-2.4+sx*1.25,1.65,sz*1.25)); }); });
+    for(var k=0;k<20;k++){
+      var s = cyl(0.07,0.07,1.7,M.cane,8);
+      s.position.set(-2.4+(r()-0.5)*2.4,4.5+r()*0.35,(r()-0.5)*2.4);
+      s.rotation.set(r()*1.4-0.7,0,r()*1.4-0.7); g.add(s);
+    }
+    g.add(at(cyl(0.6,0.6,1.2,M.dark,24),-2.4,2.1,0));
+    g.add(at(box(4.8,0.25,1.3,M.dark),0,1.15,0));
+    [-2.4,2.4].forEach(function(x){
+      var p = pivot(g,x,1.15,0); var ro = cyl(0.3,0.3,1.45,M.steel,20); ro.rotation.x = Math.PI/2; p.add(ro); spin(p,'z',-2.5);
+    });
+    var L = 4.8, ribs = [], sticks = [], x0 = -2.4;
+    for(var i=0;i<14;i++){ var rb = box(0.1,0.05,1.1,M.belt); rb.position.set(x0,1.31,0); g.add(rb); ribs.push(rb); }
+    for(var j=0;j<5;j++){ var st = cyl(0.07,0.07,1.0,M.cane,8); st.rotation.x = Math.PI/2; st.position.set(x0,1.42,(j%2?0.2:-0.2)); g.add(st); sticks.push(st); }
+    ticks.push(function(t){
+      for(var i=0;i<14;i++) ribs[i].position.x = x0 + ((i/14*L + t*1.1)%L);
+      for(var j=0;j<5;j++) sticks[j].position.x = x0 + ((j/5*L + t*1.1)%L);
+    });
+    var dp = pivot(g,3.5,2.1,0);
+    var dr = cyl(0.85,0.85,1.5,M.steel,32); dr.rotation.x = Math.PI/2; dp.add(dr);
+    for(var q=0;q<8;q++){ var a = q/8*Math.PI*2, kb = box(0.12,0.4,1.5,pm1); kb.position.set(Math.cos(a)*0.95,Math.sin(a)*0.95,0); kb.rotation.z = a; dp.add(kb); }
+    spin(dp,'z',6);
+    [-1,1].forEach(function(sz){ g.add(at(box(0.3,2.2,0.3,pm1),3.5,1.4,sz*1.0)); });
+    g.add(at(box(0.4,0.3,2.3,pm1),3.5,2.65,0));
+  });
+
+  /* ===== Dpto. II: extracción y molienda ===== */
+  makeStation(1,function(g,col){
+    var pm = paint(col);
+    [-1.5,1.5].forEach(function(z){ g.add(at(box(4,4.6,0.35,pm),0,2.6,z)); });
+    [[-0.95,2.2,1.2],[0.95,2.2,-1.2],[0,3.5,1.2]].forEach(function(c){
+      var p = pivot(g,c[0],c[1],0); var ro = cyl(0.75,0.75,2.9,M.steel,36); ro.rotation.x = Math.PI/2; p.add(ro);
+      for(var k=-2;k<=2;k++){ var rg = cyl(0.79,0.79,0.07,M.dark,36); rg.rotation.x = Math.PI/2; rg.position.z = k*0.5; p.add(rg); }
+      spin(p,'z',c[2]);
+    });
+    var feed = box(2.6,0.15,1.8,M.dark); feed.position.set(-2.6,4.2,0); feed.rotation.z = -0.5; g.add(feed);
+    g.add(at(box(1.2,1.4,1.0,pm),2.9,2.2,0));
+    var shaft = at(cyl(0.1,0.1,2.2,M.steel,10),2.9,2.2,1.0); shaft.rotation.x = Math.PI/2; g.add(shaft);
+    var fw = pivot(g,2.9,2.2,1.95);
+    var fd = cyl(0.9,0.9,0.25,M.dark,36); fd.rotation.x = Math.PI/2; fw.add(fd);
+    var sp1 = box(1.7,0.12,0.12,M.steel), sp2 = box(0.12,1.7,0.12,M.steel); sp1.position.z = sp2.position.z = 0.15; fw.add(sp1); fw.add(sp2);
+    spin(fw,'z',3);
+    g.add(at(box(4,0.3,3,pm),0,0.6,0));
+    g.add(at(box(3.6,0.05,2.6,M.juice),0,0.78,0));
+    var ch = box(1.2,0.2,3.2,M.dark); ch.position.set(0,2.3,-3.0); ch.rotation.x = -0.46; g.add(ch);
+    var pile = cyl(0.01,1.7,1.6,M.bagazo,28); pile.position.set(0,0.8,-5.7); g.add(pile);
+    var pile2 = cyl(0.01,1.0,0.9,M.bagazo,24); pile2.position.set(1.4,0.45,-5.2); g.add(pile2);
+  });
+
+  /* ===== Dpto. III: clarificación y evaporación ===== */
+  makeStation(2,function(g,col){
+    var pm = paint(col);
+    g.add(at(cyl(1.7,1.7,2.0,pm,40),-2.3,2.3,0));
+    g.add(at(cyl(1.7,0.35,1.0,pm,40),-2.3,0.8,0));
+    var disc = new THREE.Mesh(new THREE.CircleGeometry(1.62,40),M.juice); disc.rotation.x = -Math.PI/2; disc.position.set(-2.3,3.33,0); g.add(disc);
+    var rim = tor(1.7,0.08,M.steel,48); rim.rotation.x = Math.PI/2; rim.position.set(-2.3,3.3,0); g.add(rim);
+    var ap = pivot(g,-2.3,3.4,0);
+    ap.add(at(cyl(0.07,0.07,1.0,M.steel,10),0,0.5,0));
+    ap.add(at(box(3.2,0.08,0.14,M.steel),0,0.1,0));
+    spin(ap,'y',0.9);
+    g.add(at(box(3.8,0.15,0.35,M.dark),-2.3,4.4,0));
+    g.add(at(cyl(0.3,0.3,0.5,M.dark,16),-2.3,4.75,0));
+    g.add(at(cyl(1.15,1.15,4.2,pm,40),2.2,3.2,0));
+    g.add(at(cyl(1.15,0.4,0.8,pm,40),2.2,0.7,0));
+    var dome = mesh(new THREE.SphereGeometry(1.15,36,16,0,Math.PI*2,0,Math.PI/2),pm); dome.position.set(2.2,5.3,0); g.add(dome);
+    [2.0,3.3,4.6].forEach(function(y){ var rr = tor(1.15,0.07,M.steel,40); rr.rotation.x = Math.PI/2; rr.position.set(2.2,y,0); g.add(rr); });
+    g.add(at(cyl(0.18,0.18,1.5,M.steel,12),2.2,6.4,0));
+    var linkPipe = at(cyl(0.18,0.18,2.2,M.steel,12),-0.1,1.0,0); linkPipe.rotation.z = Math.PI/2; g.add(linkPipe);
+    g.add(at(box(0.7,0.7,0.7,pm),0.1,0.65,0.9));
+    var puffs = [], pmat = new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.4,depthWrite:false});
+    for(var k=0;k<5;k++){ var pf = new THREE.Mesh(new THREE.SphereGeometry(0.28,14,12),pmat.clone()); g.add(pf); puffs.push(pf); }
+    ticks.push(function(t){
+      for(var k=0;k<5;k++){ var ph = (t*0.35+k/5)%1; var p = puffs[k];
+        p.position.set(2.2+Math.sin(k*2+t)*0.12,6.9+ph*2.2,0); p.scale.setScalar(0.6+ph*1.3); p.material.opacity = 0.5*(1-ph); }
+    });
+  });
+
+  /* ===== Dpto. IV: cristalización y centrifugación ===== */
+  makeStation(3,function(g,col){
+    var pm = paint(col);
+    g.add(at(cyl(1.6,1.6,1.8,pm,40),-2.4,2.6,0));
+    g.add(at(cyl(1.6,0.45,1.4,pm,40),-2.4,1.0,0));
+    var dome = mesh(new THREE.SphereGeometry(1.6,40,16,0,Math.PI*2,0,Math.PI/2),pm); dome.scale.y = 0.75; dome.position.set(-2.4,3.5,0); g.add(dome);
+    g.add(at(cyl(0.22,0.22,1.3,M.steel,14),-2.4,4.55,0));
+    var win = new THREE.Mesh(new THREE.CircleGeometry(0.38,28),new THREE.MeshBasicMaterial({color:0xffc15a})); win.position.set(-2.4,2.6,1.61); g.add(win);
+    g.add(at(tor(0.4,0.06,M.steel,28),-2.4,2.6,1.61));
+    var pipeA = cyl(0.17,0.17,3.4,M.steel,12); pipeA.rotation.z = Math.PI/2; pipeA.position.set(-0.1,1.3,0); g.add(pipeA);
+    g.add(at(box(2.6,0.9,2.6,pm),2.4,0.75,0));
+    var outer = cyl(1.25,1.25,1.1,M.dark,48,true); outer.material = M.steelDS; outer.position.set(2.4,1.75,0); g.add(outer);
+    var lid = tor(1.25,0.1,pm,48); lid.rotation.x = Math.PI/2; lid.position.set(2.4,2.3,0); g.add(lid);
+    var bp = pivot(g,2.4,1.75,0);
+    var basket = cyl(1.0,1.0,0.9,M.dark,40,true); basket.material = new THREE.MeshBasicMaterial({color:0xc9d6db,wireframe:true}); bp.add(basket);
+    bp.add(cyl(0.95,0.95,0.85,M.sugar,40,true));
+    spin(bp,'y',7);
+    var mt = cyl(0.4,0.4,1.0,M.dark,20); mt.rotation.x = Math.PI/2; mt.position.set(2.4,0.75,1.8); g.add(mt);
+    var sp = cyl(0.2,0.2,0.5,M.steel,12); sp.rotation.z = Math.PI/2; sp.position.set(3.45,1.6,0); g.add(sp);
+    var mo = cyl(0.2,0.2,0.7,M.steel,12); mo.rotation.x = Math.PI/2; mo.position.set(2.4,1.5,1.5); g.add(mo);
+  });
+
+  /* ===== Dpto. V: secado y envasado ===== */
+  makeStation(4,function(g,col){
+    var pm = paint(col);
+    var dp = pivot(g,-0.8,2.1,0);
+    var drum = cyl(0.95,0.95,4.0,M.steelDS,36,true); drum.material = M.steelDS; drum.rotation.z = Math.PI/2; dp.add(drum);
+    [-1.6,-0.5,0.6,1.6].forEach(function(x){ var rr = tor(0.97,0.07,M.dark,36); rr.rotation.y = Math.PI/2; rr.position.x = x; dp.add(rr); });
+    for(var q=0;q<6;q++){ var a = q/6*Math.PI*2, fin = box(3.6,0.08,0.3,pm); fin.position.set(0,Math.cos(a)*0.7,Math.sin(a)*0.7); fin.rotation.x = a; dp.add(fin); }
+    spin(dp,'x',1.1);
+    g.add(at(box(0.5,1.5,1.8,M.dark),-2.0,1.05,0));
+    g.add(at(box(0.5,1.5,1.8,M.dark),0.5,1.05,0));
+    g.add(at(box(1.2,2.0,1.6,pm),2.1,1.3,-2.2));
+    g.add(at(cyl(0.2,0.2,2.4,M.steel,12),2.1,3.5,-2.2));
+    var fu = cyl(0.6,0.25,0.9,pm,24,true); fu.material = paint(col,true); fu.position.set(2.3,3.2,0); g.add(fu);
+    g.add(at(cyl(0.25,0.25,0.5,M.steel,12),2.3,2.65,0));
+    g.add(at(box(1.8,2.2,1.8,pm),3.0,1.4,0));
+    g.add(at(box(1.0,0.3,1.0,M.dark),3.0,2.65,0));
+    g.add(at(box(3.6,0.18,0.9,M.belt),5.7,0.8,0));
+    [4.3,7.1].forEach(function(x){ [-0.35,0.35].forEach(function(z){ g.add(at(cyl(0.05,0.05,0.7,M.dark,8),x,0.45,z)); }); });
+    var bags = [];
+    for(var j=0;j<4;j++){ var bg = box(0.7,0.32,0.46,M.bag); bg.position.set(4.0,1.07,0); g.add(bg); bags.push(bg); }
+    ticks.push(function(t){ for(var j=0;j<4;j++) bags[j].position.x = 4.0 + ((j/4*3.4 + t*0.9)%3.4); });
+    g.add(at(box(1.6,0.14,1.2,M.dark),8.6,0.07,0));
+    for(var layer=0;layer<3;layer++){ [-0.38,0.38].forEach(function(x){ [-0.25,0.25].forEach(function(z){ g.add(at(box(0.7,0.32,0.46,M.bag),8.6+x,0.3+layer*0.33,z)); }); }); }
+  });
+
+  /* tanque de melaza */
+  var tk = new THREE.Group(); tk.position.set(14.4,0,11.2);
+  tk.add(at(box(4.6,0.3,4.6,M.plat),0,0.15,0));
+  tk.add(at(cyl(1.9,1.9,3.6,M.melaza,48),0,2.1,0));
+  var td = mesh(new THREE.SphereGeometry(1.9,40,14,0,Math.PI*2,0,Math.PI/2),M.melaza); td.scale.y = 0.3; td.position.y = 3.9; tk.add(td);
+  [1.2,2.2,3.2].forEach(function(y){ var rr = tor(1.9,0.06,M.steel,48); rr.rotation.x = Math.PI/2; rr.position.y = y; tk.add(rr); });
+  tk.add(at(box(0.14,2.8,0.06,new THREE.MeshBasicMaterial({color:0xe8a33d})),0,2.0,1.93));
+  scene.add(tk);
+
+  /* flujos de costo y materiales */
+  flow(wp(0,4.3,2.1,0), wp(1,-3.6,3.3,0), 0xf2b155);
+  flow(wp(1,2.0,1.0,0), wp(2,-4.0,2.3,0), 0xd8d06a);
+  flow(wp(2,3.35,1.2,0), wp(3,-4.0,2.4,0), 0xe0b04a);
+  flow(wp(3,3.65,1.6,0), wp(4,-2.8,2.1,0), 0xf5ecd0);
+  flow(new THREE.Vector3(14.4,1.5,1.4), new THREE.Vector3(14.4,1.5,9.35), 0x9b6a45);
+  flow(wp(1,0,2.8,-1.7), wp(1,0,1.4,-5.0), 0x9b7a4a, {tube:false,n:5,speed:1.3,r:0.14});
+
+  /* etiquetas HTML sobre la escena */
+  var names = ['I · Recepción','II · Molienda','III · Clarificación','IV · Cristalización','V · Envasado'];
+  var ly = [6.4,6.4,10.2,6.6,6.0];
+  names.forEach(function(n,i){
+    var b = document.createElement('button'); b.type='button'; b.className='lbl'; b.style.setProperty('--c',hex(COL[i]));
+    b.innerHTML = '<i></i>'+n; b.addEventListener('click', function(){ go(i+1); });
+    labelsEl.appendChild(b);
+    labelItems.push({el:b,btn:true,idx:i,pos:new THREE.Vector3(S[i],ly[i],0)});
+  });
+  [['Bagazo · crédito <b>S/ 140,000</b>',new THREE.Vector3(S[1],2.6,-7.6)],
+   ['Melaza · <b>S/ 196,179.14</b>',new THREE.Vector3(14.4,5.2,11.2)],
+   ['Azúcar rubia · <b>S/ 2.4951 /kg</b>',new THREE.Vector3(S[4]+8.6,2.2,0)]].forEach(function(t){
+    var d = document.createElement('div'); d.className='lbl tag'; d.innerHTML = t[0]; labelsEl.appendChild(d);
+    labelItems.push({el:d,btn:false,idx:-9,pos:t[1]});
+  });
+}
+
+/* cámara por paso */
+function isNarrow(){ return stage.clientWidth <= 760; }
+function camGoal(){
+  var w = stage.clientWidth||800, h = stage.clientHeight||500, asp = w/h;
+  if(step===0){
+    var d = Math.max(48,Math.min(150,93/asp));
+    return {pos:new THREE.Vector3(0,d*0.5,d*0.78+2), tgt:new THREE.Vector3(0,1,2)};
+  }
+  if(step===6){
+    var nr = isNarrow(), sx = nr?0:3.5;
+    return {pos:new THREE.Vector3(18+sx,nr?24:15,nr?44:31), tgt:new THREE.Vector3(18+sx,nr?-3:1.5,5)};
+  }
+  var cx = S[step-1], nw = isNarrow();
+  var shift = nw?0:3.6;
+  var back = nw ? 22 : 15;
+  return {pos:new THREE.Vector3(cx+shift+6,nw?12:9,back), tgt:new THREE.Vector3(cx+shift,nw?-1.5:1.8,0)};
+}
+function applyCam(instant){
+  if(!camera) return;
+  var g = camGoal();
+  if(instant){ camera.position.copy(g.pos); controls.target.copy(g.tgt); goal = null; controls.update(); }
+  else goal = g;
+}
+
+/* ciclo de render */
+var clock = null, tmp = null;
+function frame(){
+  requestAnimationFrame(frame);
+  var dt = Math.min(clock.getDelta(),0.1);
+  if(animOn){
+    simT += dt;
+    for(var i=0;i<spinners.length;i++){ var s = spinners[i]; s.o.rotation[s.axis] += s.speed*dt; }
+    for(var k=0;k<ticks.length;k++) ticks[k](simT);
+  }
+  if(goal){
+    var k2 = 1-Math.pow(0.04,dt);
+    camera.position.lerp(goal.pos,k2); controls.target.lerp(goal.tgt,k2);
+    if(camera.position.distanceTo(goal.pos)<0.05 && controls.target.distanceTo(goal.tgt)<0.05) goal = null;
+  }
+  controls.update();
+  var act = [];
+  if(step>=1&&step<=5) act[step-1] = 1; else if(step===6){ act[3] = 0.6; act[4] = 0.6; }
+  for(var i2=0;i2<stations.length;i2++){
+    var st = stations[i2], a = act[i2]||0;
+    st.light.intensity += ((0.45+a*2.2)-st.light.intensity)*Math.min(1,dt*6);
+    st.glow.opacity += ((0.28+a*0.65)-st.glow.opacity)*Math.min(1,dt*6);
+  }
+  renderer.render(scene,camera);
+  var w = stage.clientWidth, h = stage.clientHeight;
+  for(var j=0;j<labelItems.length;j++){
+    var L = labelItems[j]; tmp.copy(L.pos).project(camera);
+    if(tmp.z>1||tmp.z<-1){ L.el.style.display='none'; continue; }
+    L.el.style.display = '';
+    L.el.style.transform = 'translate('+((tmp.x*0.5+0.5)*w).toFixed(1)+'px,'+((-tmp.y*0.5+0.5)*h).toFixed(1)+'px) translate(-50%,-100%)';
+  }
+}
+function resize(){
+  var w = stage.clientWidth, h = stage.clientHeight;
+  if(!w||!h||!renderer) return;
+  renderer.setSize(w,h); camera.aspect = w/h; camera.updateProjectionMatrix();
+  if(!userMoved) applyCam(true);
+}
+
+/* interacción */
+function bindPick(){
+  var ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), down = null;
+  var el = renderer.domElement;
+  el.addEventListener('pointerdown', function(e){ down = [e.clientX,e.clientY]; });
+  el.addEventListener('pointerup', function(e){
+    if(!down || Math.hypot(e.clientX-down[0],e.clientY-down[1])>5){ down = null; return; }
+    down = null;
+    var r = el.getBoundingClientRect();
+    ndc.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1);
+    ray.setFromCamera(ndc,camera);
+    var hits = ray.intersectObjects(stations.map(function(s){ return s.g; }),true);
+    if(!hits.length) return;
+    var o = hits[0].object;
+    while(o && o.userData.idx===undefined) o = o.parent;
+    if(o) go(o.userData.idx+1);
+  });
+}
+var autoTimer = 0;
+document.getElementById('prev').addEventListener('click', function(){ go(step-1); });
+document.getElementById('next').addEventListener('click', function(){ go(step+1); });
+document.getElementById('auto').addEventListener('click', function(e){
+  var on = e.currentTarget.getAttribute('aria-pressed')!=='true';
+  e.currentTarget.setAttribute('aria-pressed',on);
+  clearInterval(autoTimer);
+  if(on) autoTimer = setInterval(function(){ go(step+1); },9000);
+});
+document.getElementById('anim').addEventListener('click', function(e){
+  animOn = !animOn; e.currentTarget.setAttribute('aria-pressed',animOn);
+});
+document.getElementById('full').addEventListener('click', function(){
+  try{
+    if(document.fullscreenElement){ document.exitFullscreen(); }
+    else if(document.documentElement.requestFullscreen){ var p = document.documentElement.requestFullscreen(); if(p&&p.catch) p.catch(function(){}); }
+  }catch(e){}
+});
+document.getElementById('anim').setAttribute('aria-pressed',animOn);
+document.addEventListener('keydown', function(e){
+  if(e.key==='ArrowRight'){ go(step+1); } else if(e.key==='ArrowLeft'){ go(step-1); }
+});
+
+var ok = init3D();
+if(ok){
+  clock = new THREE.Clock(); tmp = new THREE.Vector3();
+  bindPick();
+  if(window.ResizeObserver) new ResizeObserver(resize).observe(stage); else window.addEventListener('resize',resize);
+  resize();
+  go(0);
+  applyCam(true);
+  frame();
+} else {
+  go(0);
+}
+})();
+</script>
+
+</body></html>
